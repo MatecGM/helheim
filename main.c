@@ -1,100 +1,68 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   main.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mbico <mbico@42angouleme.fr>               +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2024/10/21 07:21:41 by mbico             #+#    #+#             */
+/*   Updated: 2024/10/21 11:57:18 by mbico            ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <mpg123.h>
 #include <portaudio.h>
+#include <mpg123.h>
+#include <stdio.h>
+#include <stdint.h>
+#include "head.h"
 
-#define FRAMES_PER_BUFFER 1152  // Taille de frame standard pour mp3
-#define SAMPLE_RATE 44100       // Fréquence d'échantillonnage par défaut
+void	close_lib(uint8_t nb)
+{
+	const void (*exit_lib[2])(void) = {(void *) Pa_Terminate, (void *)mpg123_exit};
+	uint8_t	i;
 
-// Fonction de callback pour PortAudio
-static int audioCallback(const void *inputBuffer, void *outputBuffer,
-                         unsigned long framesPerBuffer,
-                         const PaStreamCallbackTimeInfo* timeInfo,
-                         PaStreamCallbackFlags statusFlags,
-                         void *userData) {
-    mpg123_handle *mpgHandle = (mpg123_handle *)userData;
-    unsigned char *out = (unsigned char*)outputBuffer;
-    size_t done;
-    int err = mpg123_read(mpgHandle, out, framesPerBuffer * sizeof(float) * 2, &done); // 2 canaux stéréo
-
-    if (err == MPG123_DONE) {
-        return paComplete;  // Fin du fichier
-    }
-    return paContinue;
+	i = 0;
+	while (i < nb && i < 2)
+		exit_lib[i++]();
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <file.mp3>\n", argv[0]);
-        return -1;
-    }
+t_bool	init_palib(void)
+{
+	PaError	err;
 
-    const char *filename = argv[1];
+	err = Pa_Initialize();
+	Pa_Terminate();
+	if (err)
+	{
+		printf("PortAudio init error : %s\n", Pa_GetErrorText(err));
+		return (TRUE);
+	}
+	return (FALSE);
+}
 
-    // Initialiser mpg123
-    mpg123_handle *mpgHandle;
-    int err;
-    long rate;
-    int channels, encoding;
-    mpg123_init();
-    mpgHandle = mpg123_new(NULL, &err);
-    if (mpg123_open(mpgHandle, filename) != MPG123_OK) {
-        fprintf(stderr, "Erreur lors de l'ouverture du fichier MP3: %s\n", mpg123_strerror(mpgHandle));
-        return -1;
-    }
+t_bool	init_mpglib(void)
+{
+	int32_t	err;
+	char	*str;
 
-    // Obtenir les informations sur le fichier MP3 (fréquence d'échantillonnage, canaux)
-    mpg123_getformat(mpgHandle, &rate, &channels, &encoding);
-    mpg123_format_none(mpgHandle);
-    mpg123_format(mpgHandle, rate, channels, encoding);
+	err = mpg123_init();
+	if (err)
+	{
+		printf("Mpg123 init error : %s\n", mpg123_plain_strerror(err));
+		close_lib(1);
+		return (TRUE);
+	}
+	return (FALSE);
+}
 
-    // Initialiser PortAudio
-    PaError paErr;
-    PaStream *stream;
-    paErr = Pa_Initialize();
-    if (paErr != paNoError) {
-        fprintf(stderr, "Erreur lors de l'initialisation de PortAudio: %s\n", Pa_GetErrorText(paErr));
-        return -1;
-    }
+int	main(int argc, char **argv)
+{
+	if (init_palib())
+		return (1);
+	if (init_mpglib())
+		return (1);
+	printf("end program\n");
 
-    // Ouvrir un flux audio PortAudio
-    paErr = Pa_OpenDefaultStream(&stream,
-                                 0,              // Pas d'entrée
-                                 channels,       // Nombre de canaux de sortie (stéréo ou mono)
-                                 paFloat32,      // Format d'échantillon : 32 bits flottants
-                                 rate,           // Fréquence d'échantillonnage
-                                 FRAMES_PER_BUFFER,  // Taille du buffer
-                                 audioCallback,  // Callback pour lire les données MP3
-                                 mpgHandle);     // Données utilisateur (mpg123_handle)
-    if (paErr != paNoError) {
-        fprintf(stderr, "Erreur lors de l'ouverture du flux audio: %s\n", Pa_GetErrorText(paErr));
-        return -1;
-    }
-
-    // Démarrer le flux audio
-    paErr = Pa_StartStream(stream);
-    if (paErr != paNoError) {
-        fprintf(stderr, "Erreur lors du démarrage du flux audio: %s\n", Pa_GetErrorText(paErr));
-        return -1;
-    }
-
-    // Attendre la fin du fichier MP3
-    while ((paErr = Pa_IsStreamActive(stream)) == 1) {
-        Pa_Sleep(100);
-    }
-    if (paErr < 0) {
-        fprintf(stderr, "Erreur lors de la lecture du flux audio: %s\n", Pa_GetErrorText(paErr));
-    }
-
-    // Nettoyer
-    Pa_StopStream(stream);
-    Pa_CloseStream(stream);
-    Pa_Terminate();
-    mpg123_close(mpgHandle);
-    mpg123_delete(mpgHandle);
-    mpg123_exit();
-
-    printf("Lecture terminée.\n");
-    return 0;
+	close_lib(2);
+	return (0);
 }
