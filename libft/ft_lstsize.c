@@ -1,23 +1,30 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   head.h                                             :+:      :+:    :+:   */
+/*   ft_lstsize.c                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mbico <mbico@42angouleme.fr>               +#+  +:+       +#+        */
+/*   By: mbico <mbico@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/10/21 07:41:48 by mbico             #+#    #+#             */
-/*   Updated: 2024/10/21 07:44:17 by mbico            ###   ########.fr       */
+/*   Created: 2023/11/08 20:15:19 by mbico             #+#    #+#             */
+/*   Updated: 2023/11/08 20:23:51 by mbico            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef HEAD_H
-# define HEAD_H
+#include "libft.h"
 
-typedef enum e_bool {
-	ERROR = -1,
-	FALSE,
-	TRUE,
-}	t_bool;
+int	ft_lstsize(t_list *lst)
+{
+	int		len;
+	t_list	*tmp;
 
-#endif
-
+	if (!lst)
+		return (0);
+	tmp = lst;
+	len = 1;
+	while (tmp->next != NULL)
+	{
+		tmp = tmp->next;
+		len ++;
+	}
+	return (len);
+}

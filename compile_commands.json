@@ -1,0 +1,40 @@
+[
+ {
+  "directory": "/nfs/homes/mbico/Desktop/vst/Helheim_Vintage_Reverb",
+  "arguments": [
+   "gcc",
+   "-g",
+   "-c",
+   "src/main.c",
+   "-o",
+   "obj/main.o",
+   "-I",
+   "hdr",
+   "-I./hdr/include",
+   "./hdr/libmpg123.so",
+   "./hdr/libportaudio.a",
+   "-I",
+   "./libft"
+  ],
+  "file": "src/main.c"
+ },
+ {
+  "directory": "/nfs/homes/mbico/Desktop/vst/Helheim_Vintage_Reverb",
+  "arguments": [
+   "gcc",
+   "-g",
+   "-c",
+   "src/alloc_stream.c",
+   "-o",
+   "obj/alloc_stream.o",
+   "-I",
+   "hdr",
+   "-I./hdr/include",
+   "./hdr/libmpg123.so",
+   "./hdr/libportaudio.a",
+   "-I",
+   "./libft"
+  ],
+  "file": "src/alloc_stream.c"
+ }
+]

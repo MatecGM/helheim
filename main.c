@@ -1,68 +1,83 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   main.c                                             :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: mbico <mbico@42angouleme.fr>               +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/10/21 07:21:41 by mbico             #+#    #+#             */
-/*   Updated: 2024/10/21 11:57:18 by mbico            ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include <portaudio.h>
 #include <mpg123.h>
 #include <stdio.h>
-#include <stdint.h>
-#include "head.h"
+#include <stdlib.h>
 
-void	close_lib(uint8_t nb)
-{
-	const void (*exit_lib[2])(void) = {(void *) Pa_Terminate, (void *)mpg123_exit};
-	uint8_t	i;
+#define BUFFER_SIZE 4096  // Taille du tampon PCM
 
-	i = 0;
-	while (i < nb && i < 2)
-		exit_lib[i++]();
-}
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Usage: %s <file.mp3>\n", argv[0]);
+        return 1;
+    }
 
-t_bool	init_palib(void)
-{
-	PaError	err;
+    const char *filename = "../Snare.mp3";
+    mpg123_handle *mh = NULL;
+    unsigned char buffer[BUFFER_SIZE];
+    size_t bytes_read;
+    int err;
 
-	err = Pa_Initialize();
-	Pa_Terminate();
-	if (err)
-	{
-		printf("PortAudio init error : %s\n", Pa_GetErrorText(err));
-		return (TRUE);
-	}
-	return (FALSE);
-}
+    // Variables pour PortAudio
+    PaStream *stream;
+    PaError pa_err;
+    int channels, encoding;
+    long rate;
 
-t_bool	init_mpglib(void)
-{
-	int32_t	err;
-	char	*str;
+    // Initialisation de mpg123
+    mpg123_init();
+    mh = mpg123_new(NULL, &err);
+    if (mh == NULL) {
+        fprintf(stderr, "Erreur mpg123: %s\n", mpg123_plain_strerror(err));
+        return 1;
+    }
 
-	err = mpg123_init();
-	if (err)
-	{
-		printf("Mpg123 init error : %s\n", mpg123_plain_strerror(err));
-		close_lib(1);
-		return (TRUE);
-	}
-	return (FALSE);
-}
+    mpg123_open(mh, filename);
+    mpg123_getformat(mh, &rate, &channels, &encoding);
 
-int	main(int argc, char **argv)
-{
-	if (init_palib())
-		return (1);
-	if (init_mpglib())
-		return (1);
-	printf("end program\n");
+    // Initialisation de PortAudio
+    pa_err = Pa_Initialize();
+    if (pa_err != paNoError) {
+        fprintf(stderr, "Erreur PortAudio: %s\n", Pa_GetErrorText(pa_err));
+        return 1;
+    }
 
-	close_lib(2);
-	return (0);
+    // Ouvrir un flux audio
+    pa_err = Pa_OpenStream(
+        &stream,
+        NULL, // Pas d'entrée
+        &(PaStreamParameters){
+            .device = Pa_GetDefaultOutputDevice(),
+            .channelCount = channels,
+            .sampleFormat = paInt16,  // mpg123 renvoie souvent des int16 PCM
+            .suggestedLatency = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice())->defaultLowOutputLatency,
+            .hostApiSpecificStreamInfo = NULL},
+        rate,
+        paFramesPerBufferUnspecified,
+        paClipOff,
+        NULL,
+        NULL);
+
+    if (pa_err != paNoError) {
+        fprintf(stderr, "Erreur ouverture flux: %s\n", Pa_GetErrorText(pa_err));
+        return 1;
+    }
+
+    Pa_StartStream(stream);
+
+    // Lecture et lecture du fichier MP3
+    while (mpg123_read(mh, buffer, BUFFER_SIZE, &bytes_read) == MPG123_OK) {
+        Pa_WriteStream(stream, buffer, bytes_read / sizeof(short));  // Écrire en PCM
+    }
+
+    // Nettoyage
+    Pa_StopStream(stream);
+    Pa_CloseStream(stream);
+    Pa_Terminate();
+
+    mpg123_close(mh);
+    mpg123_delete(mh);
+    mpg123_exit();
+
+    printf("Lecture terminée.\n");
+    return 0;
 }
